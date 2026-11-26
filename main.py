@@ -1,68 +1,113 @@
-from dotenv import load_dotenv
+"""Spotify artist search helpers and command-line interface."""
+
+import argparse
+import base64
 import os
-import base64 
-from requests import post, get
-import json
+
+import requests
+from dotenv import load_dotenv
 
 load_dotenv()
 
-client_id = os.getenv ("CLIENT_ID")
-client_secret = os.getenv ("CLIENT_SECRET")
-#access token
+SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
+SPOTIFY_API_URL = "https://api.spotify.com/v1"
+REQUEST_TIMEOUT = 15
+
+
+class SpotifyAPIError(RuntimeError):
+    """Raised when Spotify credentials or an API request is invalid."""
+
+
 def get_token():
-    auth_string = client_id + ":" + client_secret
-    auth_bytes = auth_string.encode ("utf-8")
-    auth_base64 = str(base64.b64encode(auth_bytes), "utf-8")
+    """Request a Spotify client-credentials access token."""
+    client_id = os.getenv("CLIENT_ID")
+    client_secret = os.getenv("CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise SpotifyAPIError(
+            "Spotify credentials are missing. Add CLIENT_ID and CLIENT_SECRET to your .env file."
+        )
 
-    url = "https://accounts.spotify.com/api/token"
-    headers = {
-        "Authorization": "Basic " + auth_base64,
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-    data = {"grant_type": "client_credentials"}
+    credentials = f"{client_id}:{client_secret}".encode("utf-8")
+    encoded_credentials = base64.b64encode(credentials).decode("utf-8")
+    try:
+        response = requests.post(
+            SPOTIFY_TOKEN_URL,
+            headers={
+                "Authorization": f"Basic {encoded_credentials}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            data={"grant_type": "client_credentials"},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        token = response.json().get("access_token")
+    except (requests.RequestException, ValueError) as error:
+        raise SpotifyAPIError("Spotify could not provide an access token. Check your credentials and connection.") from error
 
-    result = post(url, headers=headers, data=data)
-    json_result = json.loads(result.content)
-    token = json_result["access_token"]
+    if not token:
+        raise SpotifyAPIError("Spotify returned an empty access token.")
     return token
 
+
 def get_auth_header(token):
-    return {"Authorization": "Bearer " + token}
-#search for artist
-def search_for_artist (token, artist_name):
-    url = "https://api.spotify.com/v1/search"
-    headers = get_auth_header(token)
-    query = f"?q={artist_name}&type=artist&limit=1"
+    """Return the authorization header used by Spotify API requests."""
+    return {"Authorization": f"Bearer {token}"}
 
 
-    query_url = url + query
-    result = get(query_url, headers=headers)
-    json_result = json.loads(result.content)["artists"]["items"]
-    if len(json_result) == 0:
-        print("No artist with this name exists!")
-        return None
-    
-    return json_result[0]
-
-def get_songs_by_artist(token, artist_id):
-    url = f"https://api.spotify.com/v1/artists/{artist_id}/top-tracks?country=KE"
-    headers = get_auth_header(token)
-    result = get(url, headers=headers)
-    json_result = json.loads(result.content) ["tracks"]
-    return json_result
-
+def search_for_artist(token, artist_name):
+    """Return the best matching Spotify artist, or None if no match exists."""
+    try:
+        response = requests.get(
+            f"{SPOTIFY_API_URL}/search",
+            headers=get_auth_header(token),
+            params={"q": artist_name, "type": "artist", "limit": 1},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        artists = response.json().get("artists", {}).get("items", [])
+    except (requests.RequestException, ValueError) as error:
+        raise SpotifyAPIError("Artist search failed. Please try again in a moment.") from error
+    return artists[0] if artists else None
 
 
-token = get_token()
-result  = search_for_artist(token, "Sauti Sol")
-artist_id = result ["id"]
-songs = get_songs_by_artist(token, artist_id)
-print (songs)
+def get_songs_by_artist(token, artist_id, country="KE"):
+    """Return the artist's top tracks for the selected Spotify market."""
+    try:
+        response = requests.get(
+            f"{SPOTIFY_API_URL}/artists/{artist_id}/top-tracks",
+            headers=get_auth_header(token),
+            params={"country": country},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json().get("tracks", [])
+    except (requests.RequestException, ValueError) as error:
+        raise SpotifyAPIError("Could not load top tracks. Please try again in a moment.") from error
 
 
-for idx, song in enumerate (songs):
-    print(f"{idx + 1}.{song['name']}")
+def main():
+    """Run the original interactive command-line search."""
+    parser = argparse.ArgumentParser(description="Find an artist's top Spotify tracks.")
+    parser.add_argument("artist", nargs="?", help="artist to search for (prompts if omitted)")
+    args = parser.parse_args()
+    artist_name = (args.artist or input("Which artist would you like to search for? ")).strip()
+    if not artist_name:
+        parser.error("Please enter an artist name.")
+
+    try:
+        token = get_token()
+        artist = search_for_artist(token, artist_name)
+        if artist is None:
+            print(f'No artist found for "{artist_name}".')
+            return
+        tracks = get_songs_by_artist(token, artist["id"])
+    except SpotifyAPIError as error:
+        parser.exit(1, f"Error: {error}\n")
+
+    print(f"Top tracks for {artist['name']}:")
+    for index, track in enumerate(tracks, start=1):
+        print(f"{index}. {track['name']}")
 
 
-
-
+if __name__ == "__main__":
+    main()

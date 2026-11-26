@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f1e8">
+  <meta name="description" content="Find an artist and explore their most-played tracks on Spotify.">
+  <title>Sonora — Find your next favorite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <header class="topbar wrap">
+    <a class="brand" href="/" aria-label="Sonora home"><span class="brand-mark" aria-hidden="true">s.</span> sonora</a>
+    <span class="topbar-note"><span class="live-dot"></span> Your sound, a little closer</span>
+    <a class="top-link" href="#search">Explore music <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <main>
+    <section class="hero wrap" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-line"></span> A listening room for the curious</p>
+        <h1 id="hero-title">Find the music<br>that <em>moves</em> you.</h1>
+        <p class="hero-description">Follow an artist down the rabbit hole. Discover the tracks everyone loves—and the sounds you might have missed.</p>
+        <a class="hero-cta" href="#search">Find an artist <span aria-hidden="true">↓</span></a>
+        <div class="hero-footnote"><span class="tiny-equalizer" aria-hidden="true"><i></i><i></i><i></i><i></i></span> Powered by Spotify <span class="footnote-divider">·</span> Curated for your ears</div>
+      </div>
+
+      <div class="bento" aria-label="Explore music from across the world">
+        <article class="bento-tile tile-afro">
+          <img src="https://images.unsplash.com/photo-1519892300165-cb5542fb47c7?auto=format&fit=crop&w=1000&q=85" alt="Hand percussion instruments ready to play" fetchpriority="high">
+          <div class="tile-shade"></div><span class="tile-index">01 / ROOTS</span><div class="tile-label"><span>01</span><h2>Afro rhythms</h2></div>
+        </article>
+        <article class="bento-tile tile-house">
+          <img src="https://images.unsplash.com/photo-1571266028243-d220c9c3b6ea?auto=format&fit=crop&w=900&q=85" alt="DJ performing under warm stage lights" fetchpriority="high">
+          <div class="tile-shade"></div><span class="tile-index">02 / AFTER DARK</span><div class="tile-label"><span>02</span><h2>Afro house</h2></div>
+        </article>
+        <article class="bento-tile tile-beats">
+          <img src="https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=900&q=85" alt="A crowd gathered for a live music performance">
+          <div class="tile-shade"></div><span class="tile-index">03 / THE PULSE</span><div class="tile-label"><span>03</span><h2>Afrobeats</h2></div>
+        </article>
+        <article class="bento-tile tile-classical">
+          <img src="https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?auto=format&fit=crop&w=900&q=85" alt="Grand piano in a softly lit room">
+          <div class="tile-shade"></div><span class="tile-index">04 / TIMELESS</span><div class="tile-label"><span>04</span><h2>Classical</h2></div>
+        </article>
+        <div class="bento-stamp" aria-hidden="true"><span>PLAY</span><span class="stamp-note">♫</span><span>YOUR WAY</span></div>
+      </div>
+    </section>
+
+    <section class="search-section" id="search" aria-labelledby="search-title">
+      <div class="search-inner wrap">
+        <div class="search-heading">
+          <p class="eyebrow"><span class="eyebrow-line"></span> The good stuff starts here</p>
+          <h2 id="search-title">Who are we listening to?</h2>
+          <p>Search an artist to see their top tracks on Spotify.</p>
+        </div>
+        <form class="search-form" id="search-form">
+          <label class="visually-hidden" for="artist-input">Artist name</label>
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <input id="artist-input" name="artist" type="search" maxlength="100" placeholder="Try Sauti Sol, Burna Boy, or Yiruma…" autocomplete="off" required>
+          <button type="submit" id="search-button">Find tracks <span aria-hidden="true">↗</span></button>
+        </form>
+        <p class="form-hint">One artist. Ten tracks. A whole new listening mood.</p>
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+        <section id="results" class="results" aria-label="Artist top tracks" hidden></section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer wrap"><a class="brand footer-brand" href="/"><span class="brand-mark" aria-hidden="true">s.</span> sonora</a><p>Made for people who always ask, “what’s that song?”</p><span class="footer-note">A little more listening, a little less scrolling.</span></footer>
+</body>
+</html>
