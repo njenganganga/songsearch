@@ -5,6 +5,46 @@ const statusBox = document.querySelector("#status");
 const resultsBox = document.querySelector("#results");
 let activeAudio = null;
 
+// Keep the existing hero image in each tile. Only try alternatives if that
+// image fails, and leave the tile's styled background as the final fallback.
+const heroImageFallbacks = {
+  "tile-afro": [
+    "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1000&q=85",
+    "https://images.unsplash.com/photo-1519892300165-cb5542fb47c7?auto=format&fit=crop&w=1000&q=85",
+  ],
+  "tile-house": [
+    "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?auto=format&fit=crop&w=900&q=85",
+    "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=900&q=85",
+  ],
+  "tile-beats": [
+    "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=900&q=85",
+    "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=900&q=85",
+  ],
+  "tile-classical": [
+    "https://images.unsplash.com/photo-1507838153414-b4b713384a76?auto=format&fit=crop&w=900&q=85",
+    "https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?auto=format&fit=crop&w=900&q=85",
+  ],
+};
+
+document.querySelectorAll(".bento-tile").forEach((tile) => {
+  const image = tile.querySelector("img");
+  if (!image) return;
+  const candidates = heroImageFallbacks[tile.classList[1]] || [];
+  let nextCandidate = 0;
+  image.addEventListener("error", () => {
+    // Skip candidates that are the same URL as the current image.
+    while (nextCandidate < candidates.length && candidates[nextCandidate] === image.src) {
+      nextCandidate += 1;
+    }
+    if (nextCandidate < candidates.length) {
+      image.src = candidates[nextCandidate++];
+    } else {
+      image.hidden = true;
+      tile.classList.add("image-unavailable");
+    }
+  });
+});
+
 function formatDuration(milliseconds) {
   const seconds = Math.floor((milliseconds || 0) / 1000);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -27,6 +67,11 @@ function makeTrackCard(track, index) {
     image.src = track.image;
     image.alt = `Cover art for ${track.album || track.name}`;
     image.loading = "lazy";
+    image.addEventListener("error", () => {
+      image.remove();
+      artwork.textContent = "♫";
+      artwork.setAttribute("aria-label", "Album artwork unavailable");
+    }, { once: true });
     artwork.append(image);
   } else {
     artwork.textContent = "♫";
@@ -92,6 +137,7 @@ function renderResults(data) {
     image.src = artist.image;
     image.alt = `${artist.name} artist portrait`;
     image.loading = "lazy";
+    image.addEventListener("error", () => image.remove(), { once: true });
     artistInfo.append(image);
   } else {
     artistInfo.append(makeText("span", "artist-placeholder", "♫"));
@@ -101,7 +147,7 @@ function renderResults(data) {
   heading.append(makeText("h2", "", artist.name));
   const details = [];
   if (artist.followers) details.push(`${new Intl.NumberFormat().format(artist.followers)} followers`);
-  if (artist.genres.length) details.push(artist.genres.join(" · "));
+  if (artist.genres?.length) details.push(artist.genres.join(" · "));
   if (details.length) heading.append(makeText("p", "artist-meta", details.join("  /  ")));
   artistInfo.append(heading);
   if (artist.spotify_url) {
@@ -116,7 +162,7 @@ function renderResults(data) {
   header.append(artistInfo, makeText("span", "track-count", `${data.tracks.length} TOP TRACKS`));
   const grid = document.createElement("div");
   grid.className = "track-list";
-  if (!data.tracks.length) grid.append(makeText("p", "empty-state", "No top tracks were returned for this artist."));
+  if (!data.tracks.length) grid.append(makeText("p", "empty-state", "No tracks were returned. Try another artist."));
   data.tracks.forEach((track, index) => grid.append(makeTrackCard(track, index)));
   resultsBox.append(header, grid);
   resultsBox.hidden = false;

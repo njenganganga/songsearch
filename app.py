@@ -23,7 +23,9 @@ def search():
         artist = search_for_artist(token, artist_name)
         if artist is None:
             return jsonify({"error": f'No artist found for "{artist_name}". Try another name.'}), 404
-        tracks = get_songs_by_artist(token, artist["id"])
+        tracks = get_songs_by_artist(
+            token, artist["id"], artist_name=artist.get("name", artist_name)
+        )
     except SpotifyAPIError as error:
         return jsonify({"error": str(error)}), 502
 

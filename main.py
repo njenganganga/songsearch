@@ -42,7 +42,9 @@ def get_token():
         response.raise_for_status()
         token = response.json().get("access_token")
     except (requests.RequestException, ValueError) as error:
-        raise SpotifyAPIError("Spotify could not provide an access token. Check your credentials and connection.") from error
+        raise SpotifyAPIError(
+            "Spotify could not provide an access token. Check your credentials and connection."
+        ) from error
 
     if not token:
         raise SpotifyAPIError("Spotify returned an empty access token.")
@@ -70,8 +72,31 @@ def search_for_artist(token, artist_name):
     return artists[0] if artists else None
 
 
-def get_songs_by_artist(token, artist_id, country="KE"):
-    """Return the artist's top tracks for the selected Spotify market."""
+def _search_tracks_for_artist(token, artist_id, artist_name, country):
+    """Search Spotify tracks if the market-specific top-tracks route is unavailable."""
+    response = requests.get(
+        f"{SPOTIFY_API_URL}/search",
+        headers=get_auth_header(token),
+        params={
+            "q": f'artist:"{artist_name}"',
+            "type": "track",
+            "limit": 10,
+            "market": country,
+        },
+        timeout=REQUEST_TIMEOUT,
+    )
+    response.raise_for_status()
+    tracks = response.json().get("tracks", {}).get("items", [])
+    # Avoid showing similarly named artists if Spotify returns mixed search results.
+    matching = [
+        track for track in tracks
+        if any(artist.get("id") == artist_id for artist in track.get("artists", []))
+    ]
+    return matching or tracks
+
+
+def get_songs_by_artist(token, artist_id, country="KE", artist_name=None):
+    """Return up to ten artist tracks, with Spotify Search as a fallback."""
     try:
         response = requests.get(
             f"{SPOTIFY_API_URL}/artists/{artist_id}/top-tracks",
@@ -80,14 +105,32 @@ def get_songs_by_artist(token, artist_id, country="KE"):
             timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
-        return response.json().get("tracks", [])
-    except (requests.RequestException, ValueError) as error:
-        raise SpotifyAPIError("Could not load top tracks. Please try again in a moment.") from error
+        tracks = response.json().get("tracks", [])
+        if tracks:
+            return tracks
+    except (requests.RequestException, ValueError):
+        # Some Spotify apps/markets cannot access the top-tracks route. Search
+        # still provides real Spotify track results for the selected artist.
+        pass
+
+    if artist_name:
+        try:
+            tracks = _search_tracks_for_artist(token, artist_id, artist_name, country)
+            if tracks:
+                return tracks
+        except (requests.RequestException, ValueError) as error:
+            raise SpotifyAPIError(
+                "Spotify could not load this artist's tracks. Check API access and try again."
+            ) from error
+
+    raise SpotifyAPIError(
+        "Spotify returned no tracks for this artist. Try another artist or market."
+    )
 
 
 def main():
-    """Run the original interactive command-line search."""
-    parser = argparse.ArgumentParser(description="Find an artist's top Spotify tracks.")
+    """Run the interactive command-line search."""
+    parser = argparse.ArgumentParser(description="Find an artist's Spotify tracks.")
     parser.add_argument("artist", nargs="?", help="artist to search for (prompts if omitted)")
     args = parser.parse_args()
     artist_name = (args.artist or input("Which artist would you like to search for? ")).strip()
@@ -100,7 +143,7 @@ def main():
         if artist is None:
             print(f'No artist found for "{artist_name}".')
             return
-        tracks = get_songs_by_artist(token, artist["id"])
+        tracks = get_songs_by_artist(token, artist["id"], artist_name=artist["name"])
     except SpotifyAPIError as error:
         parser.exit(1, f"Error: {error}\n")
 

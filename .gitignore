@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local Spotify credentials
+.env
+.env.*
+!.env.example
